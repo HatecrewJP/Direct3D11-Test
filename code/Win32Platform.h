@@ -27,3 +27,16 @@ static ID3DBlob *Win32CompileShaderFromFile(LPCWSTR Filename, LPCSTR Entrypoint,
 static ID3D11VertexShader* Win32CreateVertexShader(ID3D11Device *Device, void *CompiledShaderCode, size_t ShaderSize);
 static ID3D11PixelShader* Win32CreatePixelShader(ID3D11Device *Device, LPCWSTR Filename, LPCSTR Entrypoint, LPCSTR Target);
 static int Win32AddPixelShaderToArray(ID3D11PixelShader** PixelShaderArray, ID3D11PixelShader* PixelShader);
+
+
+struct IndexedGeometryObject{
+	void *VertexData;
+	UINT VertexSize;
+	UINT VertexCount;
+	UINT VertexDataSize;
+	
+	UINT *IndexData;
+	UINT IndexSize;
+	UINT IndexCount;
+	UINT IndexDataSize;
+};

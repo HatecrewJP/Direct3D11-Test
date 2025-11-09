@@ -1,8 +1,10 @@
 
 
 #define ASSERT(x) if(!(x)) *(char*)0=0;
-#define TRIANGLE 1
+
 #define MAX_PIXEL_SHADER_COUNT 32
+#define ArrayCount(x) (sizeof(x)/sizeof((x)[0]))
+
 
 
 #include <d3d11.h>
@@ -188,13 +190,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	ATOM WindowAtom = RegisterClassExA(&WindowClass);
 	ASSERT(WindowAtom);
 	
-	int Width = 1920;
-	int Height = 1080;
+	int Width = 2560;
+	int Height = 1440;
 	
 	
 	
 	HRESULT res = 0;
-	HWND Window = CreateWindowExA(NULL,WindowClass.lpszClassName,"Direct3D_",WS_OVERLAPPEDWINDOW|WS_VISIBLE, 0, 0, Width, Height,NULL,NULL,hInst,NULL);
+	HWND Window = CreateWindowExA(0,WindowClass.lpszClassName,"Direct3D_",WS_OVERLAPPEDWINDOW|WS_VISIBLE, 0, 0, Width, Height,nullptr,nullptr,hInst,nullptr);
 	if(Window){
 		OutputDebugStringA("Window created\n");
 		const D3D_FEATURE_LEVEL FeatureLevels[]={
@@ -207,20 +209,18 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			D3D_FEATURE_LEVEL_9_1};
 		UINT FeatureLevelCount = sizeof(FeatureLevels)/sizeof(FeatureLevels[0]);
 		
-        UINT VertexCount = 0;
-        const UINT VertexSize = 3*sizeof(float);
         ID3D11Device *Device;
 		ID3D11DeviceContext *DeviceContext = NULL;
-		ID3D11Buffer *VertexBuffer = NULL;
         ID3D11VertexShader *VertexShader = NULL;
 		
+		ID3D11Buffer* VertexBufferArray[32] = {};
+		ID3D11Buffer* IndexBufferArray[64] = {};
 		
 		ID3D11PixelShader* PixelShaderArray[MAX_PIXEL_SHADER_COUNT];
 		
         IDXGISwapChain1 *SwapChain = NULL;
 		ID3D11RenderTargetView *RenderTargetView = NULL;
-        UINT Strides[1] = {VertexSize};
-        UINT Offsets[1] = {0};
+        
         
         D3D_FEATURE_LEVEL CurrentFeatureLevel;
 		
@@ -246,159 +246,290 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			OutputDebugStringA("VertexShader compiled");
 			
 			//Vertex Shader 
-				VertexShader = Win32CreateVertexShader(Device,CompiledVSShaderCode,VSShaderSize);
-				ASSERT(VertexShader);
-				OutputDebugStringA("Vertex Shader created");
-				ID3D11InputLayout *VSInputLayout = Win32CreateVertexInputLayout(Device,DeviceContext,CompiledVSShaderCode,VSShaderSize);
-				DeviceContext->IASetInputLayout(VSInputLayout);
-				
-				float oVertexBufferData[] {
-					//Clockwise Triangles
+			VertexShader = Win32CreateVertexShader(Device,CompiledVSShaderCode,VSShaderSize);
+			ASSERT(VertexShader);
+			OutputDebugStringA("Vertex Shader created");
+			ID3D11InputLayout *VSInputLayout = Win32CreateVertexInputLayout(Device,DeviceContext,CompiledVSShaderCode,VSShaderSize);
+			DeviceContext->IASetInputLayout(VSInputLayout);
+			
+			
+			
+			
+			
+			float SquareVertices[] {
+				//Clockwise Triangles
 
-					//TopLeft
-					-1.0f, 1.0f,0.0f,
-					 1.0f, 1.0f,0.0f,
-					-1.0f,-1.0f,0.0f,
-					//BottomRight	
-					 1.0f, 1.0f,0.0f,
-					 1.0f,-1.0f,0.0f,
-					-1.0f,-1.0f,0.0f,
-				};
-				VertexCount = sizeof(oVertexBufferData) / sizeof(oVertexBufferData[0]) / 3;
-				UINT VertexBufferSize = VertexCount * VertexSize;
-				VertexBuffer = Win32CreateVertexBuffer(Device, oVertexBufferData, VertexBufferSize, VertexSize);
-
-				Win32AddPixelShaderToArray(PixelShaderArray,Win32CreatePixelShader(Device,L"PixelShaderWhite.hlsl","PSEntry","ps_5_0"));
-				Win32AddPixelShaderToArray(PixelShaderArray,Win32CreatePixelShader(Device,L"PixelShaderRed.hlsl","PSEntry","ps_5_0"));
-				Win32AddPixelShaderToArray(PixelShaderArray,Win32CreatePixelShader(Device,L"PixelShaderGreen.hlsl","PSEntry","ps_5_0"));
-				Win32AddPixelShaderToArray(PixelShaderArray,Win32CreatePixelShader(Device,L"PixelShaderBlue.hlsl","PSEntry","ps_5_0"));
+				//TopLeft
+				-1.0f, 1.0f,0.0f, //0
+				 1.0f, 1.0f,0.0f, //1
+				-1.0f,-1.0f,0.0f, //2
+				 1.0f,-1.0f,0.0f, //3
 				
-					//Resource
-					ID3D11Resource *RenderTargetResource = NULL;
-					if(SwapChain->GetBuffer(0,__uuidof(ID3D11Resource),(void**)&RenderTargetResource)==S_OK){
-						ASSERT(RenderTargetResource);
-						//RenderTargetView
+			};
+			
+			UINT SquareIndices[]{
+				0,1,2,
+				2,1,3,
+			};
+			IndexedGeometryObject Square;
+			Square.VertexData = SquareVertices;
+			Square.VertexSize = sizeof(float) * 3;
+			Square.VertexCount = 4;
+			Square.VertexDataSize = Square.VertexCount * Square.VertexSize;
+			
+			Square.IndexData = SquareIndices;
+			Square.IndexSize = sizeof(UINT);
+			Square.IndexCount = 6;
+			Square.IndexDataSize = Square.IndexSize * Square.IndexCount;
+			
+			
+
+			VertexBufferArray[0] = Win32CreateVertexBuffer(Device, Square.VertexData, Square.VertexDataSize, Square.VertexSize);
+
+			{
+			D3D11_BUFFER_DESC IndexBufferDesc;
+			IndexBufferDesc.ByteWidth = Square.IndexDataSize;
+			IndexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+			IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+			IndexBufferDesc.CPUAccessFlags = 0;
+			IndexBufferDesc.MiscFlags = 0;
+			IndexBufferDesc.StructureByteStride = Square.IndexSize;
+			
+			D3D11_SUBRESOURCE_DATA IndexSubresourceData;
+			IndexSubresourceData.pSysMem = Square.IndexData;
+			IndexSubresourceData.SysMemPitch = 0;
+			IndexSubresourceData.SysMemSlicePitch = 0;
+			
+			res = Device->CreateBuffer(&IndexBufferDesc,&IndexSubresourceData,&IndexBufferArray[0]);
+			ASSERT(res == S_OK && IndexBufferArray[0]);
+			}
+			
+			
+			float HexagonVertices[]{
+				-0.50f, 0.00f, 0.0f, //0
+				-0.25f,-0.50f, 0.0f, //1
+				 0.25f,-0.50f, 0.0f, //2
+				 0.50f, 0.00f, 0.0f, //3
+				 0.25f, 0.50f, 0.0f, //4
+				-0.25f, 0.50f, 0.0f, //5
+			};
+			UINT HexagonIndices[]{
+				0,5,1,
+				5,4,1,
+				1,4,2,
+				4,3,2,
+			};
+			
+			IndexedGeometryObject Hexagon;
+			Hexagon.VertexData = HexagonVertices;
+			Hexagon.VertexSize = sizeof(float) * 3;
+			Hexagon.VertexCount = 6;
+			Hexagon.VertexDataSize = Hexagon.VertexCount * Hexagon.VertexSize;
+			Hexagon.IndexData = HexagonIndices;
+			Hexagon.IndexSize = sizeof(UINT);
+			Hexagon.IndexCount = 12;
+			Hexagon.IndexDataSize = Hexagon.IndexSize * Hexagon.IndexCount;
+			
+			VertexBufferArray[1] = Win32CreateVertexBuffer(Device, Hexagon.VertexData, Hexagon.VertexDataSize, Hexagon.VertexSize);
+			
+			{
+			D3D11_BUFFER_DESC IndexBufferDesc;
+			IndexBufferDesc.ByteWidth = Hexagon.IndexDataSize;
+			IndexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+			IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+			IndexBufferDesc.CPUAccessFlags = 0;
+			IndexBufferDesc.MiscFlags = 0;
+			IndexBufferDesc.StructureByteStride = Hexagon.IndexSize;
+			
+			D3D11_SUBRESOURCE_DATA IndexSubresourceData;
+			IndexSubresourceData.pSysMem = Hexagon.IndexData;
+			IndexSubresourceData.SysMemPitch = 0;
+			IndexSubresourceData.SysMemSlicePitch = 0;
+			
+			res = Device->CreateBuffer(&IndexBufferDesc,&IndexSubresourceData,&IndexBufferArray[1]);
+			ASSERT(res == S_OK && IndexBufferArray[1]);
+			}
+			
+			Win32AddPixelShaderToArray(PixelShaderArray,Win32CreatePixelShader(Device,L"PixelShaderWhite.hlsl","PSEntry","ps_5_0"));
+			Win32AddPixelShaderToArray(PixelShaderArray,Win32CreatePixelShader(Device,L"PixelShaderRed.hlsl","PSEntry","ps_5_0"));
+			Win32AddPixelShaderToArray(PixelShaderArray,Win32CreatePixelShader(Device,L"PixelShaderGreen.hlsl","PSEntry","ps_5_0"));
+			Win32AddPixelShaderToArray(PixelShaderArray,Win32CreatePixelShader(Device,L"PixelShaderBlue.hlsl","PSEntry","ps_5_0"));
+			
+			//Resource
+			ID3D11Resource *RenderTargetResource = NULL;
+			if(SwapChain->GetBuffer(0,__uuidof(ID3D11Resource),(void**)&RenderTargetResource)==S_OK){
+				ASSERT(RenderTargetResource);
+				//RenderTargetView
+				
+				
+				if(Device->CreateRenderTargetView(RenderTargetResource,NULL,&RenderTargetView)==S_OK){
+					ASSERT(RenderTargetView);
+					
+					OutputDebugStringA("RenderTargetView created");
+					
+				}
+				else{
+					OutputDebugStringA("RenderTargetView failed");
+				}
+			}
+			else{
+				OutputDebugStringA("RenderTargetResource failed");
+			}
+			
+			ID3DBlob *HSBlob = Win32CompileShaderFromFile(L"HullShader.hlsl","HSEntry","hs_5_0");
+			ID3DBlob *DSBlob = Win32CompileShaderFromFile(L"DomainShader.hlsl","DSEntry","ds_5_0");
+			ASSERT(HSBlob && DSBlob);
+			
+			ID3D11HullShader *HullShader = NULL;
+			void *CompiledHS = HSBlob->GetBufferPointer();
+			SIZE_T CompiledHSSize = HSBlob->GetBufferSize();
+			res = Device->CreateHullShader(CompiledHS,CompiledHSSize,nullptr,&HullShader);
+			ASSERT(res==S_OK);
+			
+			ID3D11DomainShader *DomainShader = NULL;
+			void *CompiledDS = DSBlob->GetBufferPointer();
+			SIZE_T CompiledDSSize = DSBlob->GetBufferSize();
+			res = Device->CreateDomainShader(CompiledDS,CompiledDSSize,nullptr,&DomainShader);
+			ASSERT(res==S_OK);
+			
+			
+			
+			
+			
+			ID3D11PixelShader *ActivePixelShader = PixelShaderArray[0];
+			ID3D11VertexShader *ActiveVertexShader = VertexShader;
+			ID3D11Buffer *ActiveVertexBuffer = VertexBufferArray[0];
+			ID3D11Buffer *ActiveIndexBuffer = IndexBufferArray[0];
+			UINT ActiveIndexCount = Square.IndexCount;
+			UINT Strides[1] = {Square.VertexSize};
+			UINT Offsets[1] = {};
+			
+			bool32 AnimationIsActive = false;
+			
+			GlobalRunning =  true;
+			while(GlobalRunning){
+				
+				MSG Message;
+				while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)){
+					
+					switch(Message.message){
+						case WM_QUIT:{
+							GlobalRunning = false;
+						}break;
 						
+						case WM_KEYDOWN:{
+							unsigned int VKCode = (unsigned int) Message.wParam;
+							if(VKCode == '1'){
+								if(PixelShaderInArrayCount >= 1 ) ActivePixelShader = PixelShaderArray[0];
+								
+							}
+							else if(VKCode == '2'){
+								if(PixelShaderInArrayCount >= 2 ) ActivePixelShader = PixelShaderArray[1];
+							}
+							else if(VKCode == '3'){
+								if(PixelShaderInArrayCount >= 3 ) ActivePixelShader = PixelShaderArray[2];
+							}
+							else if(VKCode == '4'){
+								if(PixelShaderInArrayCount >= 4 ) ActivePixelShader = PixelShaderArray[3];
+							}
+							else if(VKCode == '5'){
+								if(PixelShaderInArrayCount >= 5 ) ActivePixelShader = PixelShaderArray[4];
+							}
+							else if(VKCode == '6'){
+								if(PixelShaderInArrayCount >= 6 ) ActivePixelShader = PixelShaderArray[5];
+							}
+							else if(VKCode == VK_SPACE){
+								AnimationIsActive ^= true;
+							}
+							else if(VKCode == 'H'){
+								ActiveVertexBuffer = VertexBufferArray[1];
+								ActiveIndexBuffer = IndexBufferArray[1];
+								ActiveIndexCount = Hexagon.IndexCount;
+								Strides[0] = Hexagon.VertexSize;
+								ActivePixelShader = PixelShaderArray[2];
+							}
+							else if(VKCode == 'S'){
+								ActiveVertexBuffer = VertexBufferArray[0];
+								ActiveIndexBuffer = IndexBufferArray[0];
+								ActiveIndexCount = Square.IndexCount;
+								Strides[0] = Square.VertexSize;
+								ActivePixelShader = PixelShaderArray[0];
+							}
+							bool AltKeyWasDown = ((Message.lParam & (1 << 29)) != 0);
+							if((VKCode == VK_F4) && AltKeyWasDown){
+								GlobalRunning = false;
+							}
+								
+						}break;
 						
-						if(Device->CreateRenderTargetView(RenderTargetResource,NULL,&RenderTargetView)==S_OK){
-							ASSERT(RenderTargetView);
-							
-							OutputDebugStringA("RenderTargetView created");
-							
-						}
-						else{
-							OutputDebugStringA("RenderTargetView failed");
-						}
+						default:{
+							TranslateMessage(&Message);
+							DispatchMessage(&Message);
+						}break;
 					}
-					else{
-						OutputDebugStringA("RenderTargetResource failed");
+				}
+				
+				if(!GlobalRunning) break;
+				
+				RECT ClientRect;
+				ASSERT(GetClientRect(Window,&ClientRect));
+				Width = ClientRect.right - ClientRect.left;
+				Height = ClientRect.bottom - ClientRect.top;
+				
+				
+				static unsigned int AnimationCount = 1;
+				
+				static int AnimationIndex = 0;
+				if(AnimationIsActive){
+					AnimationCount = (AnimationCount+1)%(144*16);
+					if(AnimationCount == 0){
+						AnimationIndex = (AnimationIndex+1)%PixelShaderInArrayCount;
+						ActivePixelShader = PixelShaderArray[AnimationIndex];
 					}
+				}
+				
+				
+				//ViewPort
+				D3D11_VIEWPORT ViewPort;
+				ViewPort.TopLeftX = 0.0f;
+				ViewPort.TopLeftY = 0.0f;
+				ViewPort.Width = (float)Width;
+				ViewPort.Height = (float)Height;
+				ViewPort.MinDepth = 0.0f;
+				ViewPort.MaxDepth = 1.0f;
+				const float RGBA[4] = {0,0,0,1};
+				
+				DeviceContext->ClearRenderTargetView(RenderTargetView, RGBA);
+				DeviceContext->RSSetViewports(1,&ViewPort);
+				DeviceContext->IASetVertexBuffers(0,1,&ActiveVertexBuffer,Strides,Offsets);
+				DeviceContext->IASetIndexBuffer(ActiveIndexBuffer,DXGI_FORMAT_R32_UINT,0);
+				DeviceContext->VSSetShader(ActiveVertexShader,NULL,0);
+				DeviceContext->PSSetShader(ActivePixelShader,NULL,0);
+				DeviceContext->OMSetRenderTargets(1,&RenderTargetView,NULL);
+#if 1			
+				DeviceContext->HSSetShader(HullShader,nullptr,0);
+				DeviceContext->DSSetShader(DomainShader,nullptr,0);
+
+				DeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+				DeviceContext->Draw(3,0);
+#else
+				DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				DeviceContext->DrawIndexed(ActiveIndexCount,0,0);
+#endif	
+		
+				
+				
+				
+				SwapChain->Present(0, 0);
+			}
 		}
 		else{
-			
+			Win32ProcessError(GetLastError());
 		}
-		
-		GlobalRunning =  true;
-		ID3D11PixelShader *ActivePixelShader = PixelShaderArray[0];
-		ID3D11VertexShader *ActiveVertexShader = VertexShader;
-		
-		bool32 AnimationIsActive = false;
-		
-		while(GlobalRunning){
-			
-			MSG Message;
-			while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)){
-				
-				switch(Message.message){
-					case WM_QUIT:{
-						GlobalRunning = false;
-					}break;
-					
-					case WM_KEYDOWN:{
-						unsigned int VKCode = (unsigned int) Message.wParam;
-						if(VKCode == '1'){
-							if(PixelShaderInArrayCount >= 1 ) ActivePixelShader = PixelShaderArray[0];
-							
-						}
-						else if(VKCode == '2'){
-							if(PixelShaderInArrayCount >= 2 ) ActivePixelShader = PixelShaderArray[1];
-						}
-						else if(VKCode == '3'){
-							if(PixelShaderInArrayCount >= 3 ) ActivePixelShader = PixelShaderArray[2];
-						}
-						else if(VKCode == '4'){
-							if(PixelShaderInArrayCount >= 4 ) ActivePixelShader = PixelShaderArray[3];
-						}
-						else if(VKCode == '5'){
-							if(PixelShaderInArrayCount >= 5 ) ActivePixelShader = PixelShaderArray[4];
-						}
-						else if(VKCode == '6'){
-							if(PixelShaderInArrayCount >= 6 ) ActivePixelShader = PixelShaderArray[5];
-						}
-						else if(VKCode == VK_SPACE){
-							AnimationIsActive ^= true;
-						}
-						bool AltKeyWasDown = ((Message.lParam & (1 << 29)) != 0);
-						if((VKCode == VK_F4) && AltKeyWasDown){
-							GlobalRunning = false;
-						}
-							
-					}break;
-					
-					default:{
-						TranslateMessage(&Message);
-						DispatchMessage(&Message);
-					}break;
-				}
-			}
-			if(!GlobalRunning) break;
-			
-            DeviceContext->IASetVertexBuffers(0,1,&VertexBuffer,Strides,Offsets);
-            DeviceContext->VSSetShader(ActiveVertexShader,NULL,0);
-			DeviceContext->PSSetShader(ActivePixelShader,NULL,0);
-			DeviceContext->OMSetRenderTargets(1,&RenderTargetView,NULL);
-			
-#if TRIANGLE
-            DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-#else
-            DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP);
-#endif
-           
-			RECT ClientRect;
-			ASSERT(GetClientRect(Window,&ClientRect));
-			Width = ClientRect.right - ClientRect.left;
-			Height = ClientRect.bottom - ClientRect.top;
-			
-			
-			static unsigned int AnimationCount = 1;
-			
-			static int AnimationIndex = 0;
-			if(AnimationIsActive){
-				AnimationCount = (AnimationCount+1)%(144*16);
-				if(AnimationCount == 0){
-					AnimationIndex = (AnimationIndex+1)%PixelShaderInArrayCount;
-					ActivePixelShader = PixelShaderArray[AnimationIndex];
-				}
-			}
-			
-			
-            //ViewPort
-            D3D11_VIEWPORT ViewPort;
-            ViewPort.TopLeftX = 0.0f;
-            ViewPort.TopLeftY = 0.0f;
-            ViewPort.Width = (float)Width;
-            ViewPort.Height = (float)Height;
-            ViewPort.MinDepth = 0.0f;
-            ViewPort.MaxDepth = 1.0f;
-			const float RGBA[4] = {0,0,0,1};
-			DeviceContext->ClearRenderTargetView(RenderTargetView, RGBA);
-            DeviceContext->RSSetViewports(1,&ViewPort);
-            DeviceContext->Draw(VertexCount, 0);
-			
-			SwapChain->Present(0, 0);
-        }
 	}
-    else{
-        Win32ProcessError(GetLastError());
-    }
+	else{
+		Win32ProcessError(GetLastError());	
+	}
+		
+		
 } 
