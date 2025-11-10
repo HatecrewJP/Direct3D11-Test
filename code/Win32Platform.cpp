@@ -107,14 +107,14 @@ static ID3DBlob *Win32CompileShaderFromFile(LPCWSTR Filename, LPCSTR Entrypoint,
 	return BlobCode;
 }
 
-static ID3D11Buffer * Win32CreateVertexBuffer(ID3D11Device *Device,void* VertexBufferData, UINT VertexBufferSize, UINT VertexSize){
+static ID3D11Buffer * Win32CreateVertexBuffer(ID3D11Device *Device,void* VertexBufferData, UINT VertexBufferSize){
 	D3D11_BUFFER_DESC VertexBufferDesc;
 	VertexBufferDesc.ByteWidth = VertexBufferSize;
 	VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	VertexBufferDesc.CPUAccessFlags = 0;
 	VertexBufferDesc.MiscFlags = 0;
-	VertexBufferDesc.StructureByteStride = VertexSize;
+	VertexBufferDesc.StructureByteStride = 0;
 	
 	D3D11_SUBRESOURCE_DATA SubresourceData;
 	SubresourceData.pSysMem = VertexBufferData;
@@ -123,6 +123,10 @@ static ID3D11Buffer * Win32CreateVertexBuffer(ID3D11Device *Device,void* VertexB
 	
 	ID3D11Buffer *VertexBuffer;
 	ASSERT(Device->CreateBuffer(&VertexBufferDesc,&SubresourceData,&VertexBuffer)==S_OK);
+
+	D3D11_BUFFER_DESC VBDesc;
+	VertexBuffer->GetDesc(&VBDesc);
+
 	return VertexBuffer;
 }
 
@@ -217,6 +221,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		ID3D11Buffer* IndexBufferArray[64] = {};
 		
 		ID3D11PixelShader* PixelShaderArray[MAX_PIXEL_SHADER_COUNT];
+		ID3D11HullShader *HullShader = NULL;
+		ID3D11DomainShader *DomainShader = NULL;
 		
         IDXGISwapChain1 *SwapChain = NULL;
 		ID3D11RenderTargetView *RenderTargetView = NULL;
@@ -284,8 +290,9 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			
 			
 
-			VertexBufferArray[0] = Win32CreateVertexBuffer(Device, Square.VertexData, Square.VertexDataSize, Square.VertexSize);
-
+			VertexBufferArray[0] = Win32CreateVertexBuffer(Device, Square.VertexData, Square.VertexDataSize);
+			D3D11_BUFFER_DESC VBDesc;
+			VertexBufferArray[0]->GetDesc(&VBDesc);
 			{
 			D3D11_BUFFER_DESC IndexBufferDesc;
 			IndexBufferDesc.ByteWidth = Square.IndexDataSize;
@@ -293,7 +300,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 			IndexBufferDesc.CPUAccessFlags = 0;
 			IndexBufferDesc.MiscFlags = 0;
-			IndexBufferDesc.StructureByteStride = Square.IndexSize;
+			IndexBufferDesc.StructureByteStride = 0;
 			
 			D3D11_SUBRESOURCE_DATA IndexSubresourceData;
 			IndexSubresourceData.pSysMem = Square.IndexData;
@@ -330,7 +337,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			Hexagon.IndexCount = 12;
 			Hexagon.IndexDataSize = Hexagon.IndexSize * Hexagon.IndexCount;
 			
-			VertexBufferArray[1] = Win32CreateVertexBuffer(Device, Hexagon.VertexData, Hexagon.VertexDataSize, Hexagon.VertexSize);
+			VertexBufferArray[1] = Win32CreateVertexBuffer(Device, Hexagon.VertexData, Hexagon.VertexDataSize);
 			
 			{
 			D3D11_BUFFER_DESC IndexBufferDesc;
@@ -339,7 +346,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			IndexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
 			IndexBufferDesc.CPUAccessFlags = 0;
 			IndexBufferDesc.MiscFlags = 0;
-			IndexBufferDesc.StructureByteStride = Hexagon.IndexSize;
+			IndexBufferDesc.StructureByteStride = 0;
 			
 			D3D11_SUBRESOURCE_DATA IndexSubresourceData;
 			IndexSubresourceData.pSysMem = Hexagon.IndexData;
@@ -377,19 +384,19 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			}
 			
 			ID3DBlob *HSBlob = Win32CompileShaderFromFile(L"HullShader.hlsl","HSEntry","hs_5_0");
-			ID3DBlob *DSBlob = Win32CompileShaderFromFile(L"DomainShader.hlsl","DSEntry","ds_5_0");
-			ASSERT(HSBlob && DSBlob);
+			ASSERT(HSBlob);
 			
-			ID3D11HullShader *HullShader = NULL;
 			void *CompiledHS = HSBlob->GetBufferPointer();
 			SIZE_T CompiledHSSize = HSBlob->GetBufferSize();
 			res = Device->CreateHullShader(CompiledHS,CompiledHSSize,nullptr,&HullShader);
 			ASSERT(res==S_OK);
 			
-			ID3D11DomainShader *DomainShader = NULL;
+			ID3DBlob *DSBlob = Win32CompileShaderFromFile(L"DomainShader.hlsl","DSEntry","ds_5_0");
+			
 			void *CompiledDS = DSBlob->GetBufferPointer();
 			SIZE_T CompiledDSSize = DSBlob->GetBufferSize();
 			res = Device->CreateDomainShader(CompiledDS,CompiledDSSize,nullptr,&DomainShader);
+			ASSERT(DSBlob);
 			ASSERT(res==S_OK);
 			
 			
@@ -441,6 +448,27 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 							else if(VKCode == VK_SPACE){
 								AnimationIsActive ^= true;
 							}
+							else if(VKCode == 'R'){
+								ASSERT(HullShader)
+								HullShader->Release();
+								HSBlob = Win32CompileShaderFromFile(L"HullShader.hlsl","HSEntry","hs_5_0");
+								void* x = HSBlob->GetBufferPointer();
+								ASSERT(HSBlob);
+								CompiledHS = HSBlob->GetBufferPointer();
+								CompiledHSSize = HSBlob->GetBufferSize();
+								res = Device->CreateHullShader(CompiledHS,CompiledHSSize,nullptr,&HullShader);
+								ASSERT(res==S_OK);
+								
+								ASSERT(DomainShader)
+								DomainShader->Release();
+								DSBlob = Win32CompileShaderFromFile(L"DomainShader.hlsl","DSEntry","ds_5_0");
+								ASSERT(DSBlob);
+								CompiledDS = DSBlob->GetBufferPointer();
+								CompiledDSSize = DSBlob->GetBufferSize();
+								res = Device->CreateDomainShader(CompiledDS,CompiledDSSize,nullptr,&DomainShader);
+								ASSERT(res==S_OK);
+							}
+							
 							else if(VKCode == 'H'){
 								ActiveVertexBuffer = VertexBufferArray[1];
 								ActiveIndexBuffer = IndexBufferArray[1];
@@ -506,11 +534,11 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				DeviceContext->VSSetShader(ActiveVertexShader,NULL,0);
 				DeviceContext->PSSetShader(ActivePixelShader,NULL,0);
 				DeviceContext->OMSetRenderTargets(1,&RenderTargetView,NULL);
-#if 1			
+#if 1		
 				DeviceContext->HSSetShader(HullShader,nullptr,0);
 				DeviceContext->DSSetShader(DomainShader,nullptr,0);
 
-				DeviceContext->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
+				DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
 				DeviceContext->Draw(3,0);
 #else
 				DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

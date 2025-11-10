@@ -1,4 +1,4 @@
-float tesselationAmount = 3;
+
 
 struct HsInput
 {
@@ -22,11 +22,11 @@ struct HsOutput{
 ConstantOutputType PatchConstantFunction(InputPatch<HsInput,3> inputPatch, uint PatchID : SV_PrimitiveID){
 	ConstantOutputType Output;
 	
-	Output.Edges[0] = tesselationAmount;
-	Output.Edges[1] = tesselationAmount;
-	Output.Edges[2] = tesselationAmount;
+	Output.Edges[0] = 3;
+	Output.Edges[1] = 1;
+	Output.Edges[2] = 1;
 	
-	Output.inside = tesselationAmount;
+	Output.inside = 1;
 	
 	return Output;
 }
