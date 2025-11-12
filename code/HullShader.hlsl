@@ -22,11 +22,11 @@ struct HsOutput{
 ConstantOutputType PatchConstantFunction(InputPatch<HsInput,3> inputPatch, uint PatchID : SV_PrimitiveID){
 	ConstantOutputType Output;
 	
-	Output.Edges[0] = 3;
+	Output.Edges[0] = 1;
 	Output.Edges[1] = 1;
 	Output.Edges[2] = 1;
 	
-	Output.inside = 1;
+	Output.inside = 2;
 	
 	return Output;
 }

@@ -194,8 +194,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	ATOM WindowAtom = RegisterClassExA(&WindowClass);
 	ASSERT(WindowAtom);
 	
-	int Width = 2560;
-	int Height = 1440;
+	int Width = 1920;
+	int Height = 1080;
 	
 	
 	
@@ -223,6 +223,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		ID3D11PixelShader* PixelShaderArray[MAX_PIXEL_SHADER_COUNT];
 		ID3D11HullShader *HullShader = NULL;
 		ID3D11DomainShader *DomainShader = NULL;
+		ID3D11GeometryShader *GeometryShader = NULL;
+		
 		
         IDXGISwapChain1 *SwapChain = NULL;
 		ID3D11RenderTargetView *RenderTargetView = NULL;
@@ -385,21 +387,24 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			
 			ID3DBlob *HSBlob = Win32CompileShaderFromFile(L"HullShader.hlsl","HSEntry","hs_5_0");
 			ASSERT(HSBlob);
-			
 			void *CompiledHS = HSBlob->GetBufferPointer();
 			SIZE_T CompiledHSSize = HSBlob->GetBufferSize();
 			res = Device->CreateHullShader(CompiledHS,CompiledHSSize,nullptr,&HullShader);
 			ASSERT(res==S_OK);
 			
 			ID3DBlob *DSBlob = Win32CompileShaderFromFile(L"DomainShader.hlsl","DSEntry","ds_5_0");
-			
+			ASSERT(DSBlob);
 			void *CompiledDS = DSBlob->GetBufferPointer();
 			SIZE_T CompiledDSSize = DSBlob->GetBufferSize();
 			res = Device->CreateDomainShader(CompiledDS,CompiledDSSize,nullptr,&DomainShader);
-			ASSERT(DSBlob);
 			ASSERT(res==S_OK);
 			
-			
+			ID3DBlob *GSBlob = Win32CompileShaderFromFile(L"GeometryShader.hlsl","GSEntry","gs_5_0");
+			ASSERT(GSBlob);
+			void *CompiledGS = GSBlob->GetBufferPointer();
+			SIZE_T CompiledGSSize = GSBlob->GetBufferSize();
+			res = Device->CreateGeometryShader(CompiledGS,CompiledGSSize,nullptr,&GeometryShader);
+			ASSERT(res==S_OK);
 			
 			
 			
@@ -534,13 +539,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				DeviceContext->VSSetShader(ActiveVertexShader,NULL,0);
 				DeviceContext->PSSetShader(ActivePixelShader,NULL,0);
 				DeviceContext->OMSetRenderTargets(1,&RenderTargetView,NULL);
-#if 1		
+#if 0		
 				DeviceContext->HSSetShader(HullShader,nullptr,0);
 				DeviceContext->DSSetShader(DomainShader,nullptr,0);
-
 				DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-				DeviceContext->Draw(3,0);
+				DeviceContext->DrawIndexed(ActiveIndexCount,0,0);
 #else
+				DeviceContext->GSSetShader(GeometryShader,nullptr,0);
 				DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 				DeviceContext->DrawIndexed(ActiveIndexCount,0,0);
 #endif	
