@@ -1,9 +1,9 @@
 
 struct DSInput{
-	float4 Position : POSITION;
+	float4 Position : SV_Position;
 };
 struct DSOutput{
-	float4 Position : POSITION;
+	float4 Position : SV_Position;
 };
 
 struct ConstantOutputType{

@@ -1,15 +1,15 @@
 
 struct ps_input
 {
-	float4 vPosition : POSITION;
+	float4 vPosition : SV_Position;
 };
 
 struct ps_output
 {
-	float4 color : COLOR;
+	float4 color : SV_Target0;
 };
 
-ps_output PSEntry(const ps_input input): COLOR
+ps_output PSEntry(const ps_input input)
 {
 	ps_output output;
 	

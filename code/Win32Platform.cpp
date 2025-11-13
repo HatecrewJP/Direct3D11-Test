@@ -21,6 +21,8 @@ typedef int bool32;
 global_variable bool32 GlobalRunning = false;
 global_variable UINT PixelShaderInArrayCount = 0;
 
+
+
 LRESULT Wndproc(HWND WindowHandle, UINT Message, WPARAM WParam, LPARAM LParam){
 	switch(Message){
 		case WM_CLOSE:{
@@ -95,7 +97,7 @@ static ID3DBlob *Win32CompileShaderFromFile(LPCWSTR Filename, LPCSTR Entrypoint,
 	ID3DBlob *BlobError;
 	
 	HRESULT res;
-	if(!((res=D3DCompileFromFile(Filename, NULL, NULL, Entrypoint, Target, D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY | D3DCOMPILE_DEBUG, 0, &BlobCode, &BlobError)) == S_OK)){
+	if(!((res=D3DCompileFromFile(Filename, NULL, NULL, Entrypoint, Target, /*D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY | */ D3DCOMPILE_DEBUG, 0, &BlobCode, &BlobError)) == S_OK)){
 		if(BlobError){
 			LPCSTR Buffer = (LPCSTR)BlobError->GetBufferPointer();
 			OutputDebugStringA(Buffer);
@@ -132,7 +134,7 @@ static ID3D11Buffer * Win32CreateVertexBuffer(ID3D11Device *Device,void* VertexB
 
 static ID3D11InputLayout* Win32CreateVertexInputLayout(ID3D11Device *Device, ID3D11DeviceContext *DeviceContext,void *CompiledVSShaderCode, size_t ShaderSize){
 	D3D11_INPUT_ELEMENT_DESC VSInputElementDesc;
-	VSInputElementDesc.SemanticName = "POSITION";
+	VSInputElementDesc.SemanticName = "SV_POSITION";
 	VSInputElementDesc.SemanticIndex = 0;
 	VSInputElementDesc.Format = DXGI_FORMAT_R32G32B32_FLOAT;
 	VSInputElementDesc.InputSlot = 0;
@@ -215,16 +217,16 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		
         ID3D11Device *Device;
 		ID3D11DeviceContext *DeviceContext = NULL;
-        ID3D11VertexShader *VertexShader = NULL;
+        
+
+		ID3D11Buffer* 			VertexBufferArray[32] = {};
+		ID3D11Buffer* 			IndexBufferArray[64] = {};
 		
-		ID3D11Buffer* VertexBufferArray[32] = {};
-		ID3D11Buffer* IndexBufferArray[64] = {};
-		
-		ID3D11PixelShader* PixelShaderArray[MAX_PIXEL_SHADER_COUNT];
-		ID3D11HullShader *HullShader = NULL;
-		ID3D11DomainShader *DomainShader = NULL;
-		ID3D11GeometryShader *GeometryShader = NULL;
-		
+		ID3D11VertexShader 		*VertexShader = NULL;
+		ID3D11HullShader 		*HullShader = NULL;
+		ID3D11DomainShader 		*DomainShader = NULL;
+		ID3D11GeometryShader 	*GeometryShader = NULL;
+		ID3D11PixelShader* 		PixelShaderArray[MAX_PIXEL_SHADER_COUNT];
 		
         IDXGISwapChain1 *SwapChain = NULL;
 		ID3D11RenderTargetView *RenderTargetView = NULL;
@@ -534,8 +536,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				
 				DeviceContext->ClearRenderTargetView(RenderTargetView, RGBA);
 				DeviceContext->RSSetViewports(1,&ViewPort);
+				
 				DeviceContext->IASetVertexBuffers(0,1,&ActiveVertexBuffer,Strides,Offsets);
 				DeviceContext->IASetIndexBuffer(ActiveIndexBuffer,DXGI_FORMAT_R32_UINT,0);
+				
 				DeviceContext->VSSetShader(ActiveVertexShader,NULL,0);
 				DeviceContext->PSSetShader(ActivePixelShader,NULL,0);
 				DeviceContext->OMSetRenderTargets(1,&RenderTargetView,NULL);

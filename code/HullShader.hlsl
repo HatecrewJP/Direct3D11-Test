@@ -2,7 +2,7 @@
 
 struct HsInput
 {
-	float4 Position : POSITION;
+	float4 Position : SV_Position;
 
 };
 
@@ -13,7 +13,7 @@ struct ConstantOutputType{
 
 
 struct HsOutput{
-	float4 Position : POSITION;
+	float4 Position : SV_Position;
 };
 
 
