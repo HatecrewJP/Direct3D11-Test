@@ -408,9 +408,26 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			res = Device->CreateGeometryShader(CompiledGS,CompiledGSSize,nullptr,&GeometryShader);
 			ASSERT(res==S_OK);
 			
+			//Rasterizer
+			D3D11_RASTERIZER_DESC RasterizerDesc;
+			RasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
+			RasterizerDesc.CullMode = D3D11_CULL_BACK;
+			RasterizerDesc.FrontCounterClockwise = FALSE;
+			RasterizerDesc.DepthBias = 0;
+			RasterizerDesc.DepthBiasClamp = 1.0f;
+			RasterizerDesc.SlopeScaledDepthBias = 0.0f;
+			RasterizerDesc.DepthClipEnable = FALSE;
+			RasterizerDesc.ScissorEnable = TRUE;
+			RasterizerDesc.MultisampleEnable = FALSE;
+			RasterizerDesc.AntialiasedLineEnable = FALSE;
+			
+			ID3D11RasterizerState *RasterizerState = NULL;
+			res = Device->CreateRasterizerState(&RasterizerDesc,&RasterizerState);
+			ASSERT(RasterizerState);
 			
 			
-			ID3D11PixelShader *ActivePixelShader = PixelShaderArray[0];
+			
+			ID3D11PixelShader *ActivePixelShader = PixelShaderArray[1];
 			ID3D11VertexShader *ActiveVertexShader = VertexShader;
 			ID3D11Buffer *ActiveVertexBuffer = VertexBufferArray[0];
 			ID3D11Buffer *ActiveIndexBuffer = IndexBufferArray[0];
@@ -524,7 +541,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				}
 				
 				
-				//ViewPort
+				
 				D3D11_VIEWPORT ViewPort;
 				ViewPort.TopLeftX = 0.0f;
 				ViewPort.TopLeftY = 0.0f;
@@ -534,8 +551,33 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				ViewPort.MaxDepth = 1.0f;
 				const float RGBA[4] = {0,0,0,1};
 				
+				D3D11_RECT ScissorRect;
+				ScissorRect.left  	= (LONG)(ViewPort.TopLeftX + (Width * 0.25f));
+				ScissorRect.top   	= (LONG)(ViewPort.TopLeftY + (Height * 0.25f));
+				ScissorRect.right 	= (LONG)(ViewPort.Width * 0.75f);
+				ScissorRect.bottom  = (LONG)(ViewPort.Height * 0.75f);
+				
+				
+				//
 				DeviceContext->ClearRenderTargetView(RenderTargetView, RGBA);
+				
+				//Draw Full Square
 				DeviceContext->RSSetViewports(1,&ViewPort);
+				DeviceContext->RSSetState(NULL);
+				DeviceContext->IASetVertexBuffers(0, 1, &ActiveVertexBuffer, Strides, Offsets);
+				DeviceContext->IASetIndexBuffer(ActiveIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+				DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+				DeviceContext->VSSetShader(ActiveVertexShader, NULL, 0);
+				DeviceContext->PSSetShader(PixelShaderArray[0], NULL, 0);
+				DeviceContext->OMSetRenderTargets(1, &RenderTargetView, NULL);
+				
+				DeviceContext->DrawIndexed(ActiveIndexCount, 0, 0);
+
+				
+				//Draw Geometry Lines
+				DeviceContext->RSSetViewports(1,&ViewPort);
+				DeviceContext->RSSetScissorRects(1,&ScissorRect);
+				DeviceContext->RSSetState(RasterizerState);
 				
 				DeviceContext->IASetVertexBuffers(0,1,&ActiveVertexBuffer,Strides,Offsets);
 				DeviceContext->IASetIndexBuffer(ActiveIndexBuffer,DXGI_FORMAT_R32_UINT,0);
@@ -547,13 +589,15 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				DeviceContext->HSSetShader(HullShader,nullptr,0);
 				DeviceContext->DSSetShader(DomainShader,nullptr,0);
 				DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST);
-				DeviceContext->DrawIndexed(ActiveIndexCount,0,0);
+				
 #else
 				DeviceContext->GSSetShader(GeometryShader,nullptr,0);
 				DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-				DeviceContext->DrawIndexed(ActiveIndexCount,0,0);
+				
 #endif	
-		
+				DeviceContext->DrawIndexed(ActiveIndexCount, 0, 0);
+
+				
 				
 				
 				
