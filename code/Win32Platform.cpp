@@ -12,7 +12,7 @@
 #include <d3dcompiler.h>
 #include <windows.h>
 
-
+#define internal static
 #define global_variable static
 typedef int bool32;
 
@@ -55,7 +55,7 @@ LRESULT Wndproc(HWND WindowHandle, UINT Message, WPARAM WParam, LPARAM LParam){
 	return DefWindowProcA(WindowHandle,Message,WParam,LParam);
 }
 
-static void Win32ProcessError(DWORD Error){
+internal void Win32ProcessError(DWORD Error){
 	LPVOID lpMsgBuf = 0;
 	FormatMessage(
                   FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -68,7 +68,7 @@ static void Win32ProcessError(DWORD Error){
 	exit(-1);
 }
 
-static int Win32GetIDXGIInterfacesFromD3DDevice(ID3D11Device *Device, IDXGIDevice1 **IdxgiDevice,IDXGIAdapter **IdxgiAdapter,IDXGIFactory2 **IdxgiFactory ){
+internal int Win32GetIDXGIInterfacesFromD3DDevice(ID3D11Device *Device, IDXGIDevice1 **IdxgiDevice,IDXGIAdapter **IdxgiAdapter,IDXGIFactory2 **IdxgiFactory ){
 	*IdxgiDevice = NULL;
 	*IdxgiAdapter = NULL;
 	*IdxgiFactory = NULL;
@@ -88,7 +88,7 @@ static int Win32GetIDXGIInterfacesFromD3DDevice(ID3D11Device *Device, IDXGIDevic
 	return 0;
 }
 
-static IDXGISwapChain1* Win32GetSwapChain(ID3D11Device *Device, HWND Window,IDXGIFactory2 *IdxgiFactory){
+internal IDXGISwapChain1* Win32GetSwapChain(ID3D11Device *Device, HWND Window,IDXGIFactory2 *IdxgiFactory){
 	DXGI_SAMPLE_DESC SampleDesc = {1,0};
 	DXGI_SWAP_CHAIN_DESC1 SwapChainDesc1;
 	SwapChainDesc1.Width = 0;
@@ -111,7 +111,7 @@ static IDXGISwapChain1* Win32GetSwapChain(ID3D11Device *Device, HWND Window,IDXG
 	
 }
 
-static ID3DBlob *Win32CompileShaderFromFile(LPCWSTR Filename, LPCSTR Entrypoint, LPCSTR Target){
+internal ID3DBlob *Win32CompileShaderFromFile(LPCWSTR Filename, LPCSTR Entrypoint, LPCSTR Target){
 	ID3DBlob *BlobCode;
 	ID3DBlob *BlobError;
 	
@@ -128,7 +128,7 @@ static ID3DBlob *Win32CompileShaderFromFile(LPCWSTR Filename, LPCSTR Entrypoint,
 	return BlobCode;
 }
 
-static ID3D11Buffer * Win32CreateVertexBuffer(ID3D11Device *Device,void* VertexBufferData, UINT VertexBufferSize){
+internal ID3D11Buffer * Win32CreateVertexBuffer(ID3D11Device *Device,void* VertexBufferData, UINT VertexBufferSize){
 	D3D11_BUFFER_DESC VertexBufferDesc;
 	VertexBufferDesc.ByteWidth = VertexBufferSize;
 	VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
@@ -151,7 +151,7 @@ static ID3D11Buffer * Win32CreateVertexBuffer(ID3D11Device *Device,void* VertexB
 	return VertexBuffer;
 }
 
-static ID3D11InputLayout* Win32CreateVertexInputLayout(ID3D11Device *Device, ID3D11DeviceContext *DeviceContext,void *CompiledVSShaderCode, size_t ShaderSize){
+internal ID3D11InputLayout* Win32CreateVertexInputLayout(ID3D11Device *Device, ID3D11DeviceContext *DeviceContext,void *CompiledVSShaderCode, size_t ShaderSize){
 	D3D11_INPUT_ELEMENT_DESC VSInputElementDesc;
 	VSInputElementDesc.SemanticName = "SV_POSITION";
 	VSInputElementDesc.SemanticIndex = 0;
@@ -167,13 +167,13 @@ static ID3D11InputLayout* Win32CreateVertexInputLayout(ID3D11Device *Device, ID3
 	
 }
 
-static ID3D11VertexShader* Win32CreateVertexShader(ID3D11Device *Device, void *CompiledShaderCode, size_t ShaderSize){
+internal ID3D11VertexShader* Win32CreateVertexShader(ID3D11Device *Device, void *CompiledShaderCode, size_t ShaderSize){
 	ID3D11VertexShader *VertexShader = NULL;
 	ASSERT(Device->CreateVertexShader(CompiledShaderCode,ShaderSize,NULL,&VertexShader)==S_OK);
 	return VertexShader;
 	
 }
-static ID3D11PixelShader* Win32CreatePixelShader(ID3D11Device *Device, LPCWSTR Filename, LPCSTR Entrypoint, LPCSTR Target){
+internal ID3D11PixelShader* Win32CreatePixelShader(ID3D11Device *Device, LPCWSTR Filename, LPCSTR Entrypoint, LPCSTR Target){
 	//Pixel Shader
 	ID3DBlob *BlobPSCode = Win32CompileShaderFromFile(Filename,Entrypoint,Target);
 	void *CompiledPSShaderCode = BlobPSCode->GetBufferPointer();
@@ -184,7 +184,7 @@ static ID3D11PixelShader* Win32CreatePixelShader(ID3D11Device *Device, LPCWSTR F
 	return PixelShader;
 	
 }
-static int Win32AddPixelShaderToArray(ID3D11PixelShader** PixelShaderArray, ID3D11PixelShader* PixelShader){
+internal int Win32AddPixelShaderToArray(ID3D11PixelShader** PixelShaderArray, ID3D11PixelShader* PixelShader){
 	if(PixelShaderArray){
 		if(GlobalPixelShaderInArrayCount < MAX_PIXEL_SHADER_COUNT){
 			PixelShaderArray[GlobalPixelShaderInArrayCount] = PixelShader;
@@ -196,7 +196,7 @@ static int Win32AddPixelShaderToArray(ID3D11PixelShader** PixelShaderArray, ID3D
 	
 }
 
-static void MessageLoop(ID3D11Device* Device){
+internal void MessageLoop(ID3D11Device* Device){
 	MSG Message;
 	while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)){
 		
@@ -538,6 +538,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			
 			
 			GlobalRunning =  true;
+			
+			//MainLoop
 			while(GlobalRunning){
 				
 				MessageLoop(Device);
@@ -590,6 +592,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				DeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 				DeviceContext->VSSetShader(GlobalActiveVertexShader, NULL, 0);
 				DeviceContext->PSSetShader(GlobalPixelShaderArray[0], NULL, 0);
+				DeviceContext->GSSetShader(nullptr,nullptr,0);
 				DeviceContext->OMSetRenderTargets(1, &RenderTargetView, NULL);
 				
 				DeviceContext->DrawIndexed(GlobalActiveIndexCount, 0, 0);
