@@ -17,13 +17,25 @@
 
 #define internal static
 #define global_variable static
-typedef int bool32;
 
 #include "Win32Platform.h"
 
-global_variable bool32 GlobalRunning = false;
+internal struct IndexedGeometryObject{
+	void *VertexData;
+	UINT VertexSize;
+	UINT VertexCount;
+	UINT VertexDataSize;
+	
+	UINT *IndexData;
+	UINT IndexSize;
+	UINT IndexCount;
+	UINT IndexDataSize;
+};
+
+
+global_variable bool GlobalRunning = false;
 global_variable UINT GlobalPixelShaderInArrayCount = 0;
-global_variable bool32 GlobalAnimationIsActive = false;
+global_variable bool GlobalAnimationIsActive = false;
 
 global_variable ID3D11Device 			*GlobalDevice 			= NULL;
 global_variable IDXGISwapChain1 		*GlobalSwapChain 		= NULL;
@@ -58,6 +70,8 @@ global_variable ID3D11UnorderedAccessView *GlobalUAV = nullptr;
 ID3D11Texture2D *GlobalUAVTexture = nullptr;
 
 
+//Windows functions
+
 LRESULT Wndproc(HWND WindowHandle, UINT Message, WPARAM WParam, LPARAM LParam){
 	switch(Message){
 		case WM_CLOSE:{
@@ -68,71 +82,6 @@ LRESULT Wndproc(HWND WindowHandle, UINT Message, WPARAM WParam, LPARAM LParam){
 		}break;
 	}
 	return DefWindowProcA(WindowHandle,Message,WParam,LParam);
-}
-internal void ResizeSwapChainBuffers(UINT NewWidth, UINT NewHeight){
-	GlobalDeviceContext->OMSetRenderTargets(0,0,0);
-	GlobalFrameBuffer->Release();
-	GlobalFrameBuffer = nullptr;
-	GlobalRenderTargetView->Release();
-	GlobalRenderTargetView = nullptr;
-	GlobalSwapChain->ResizeBuffers(0,NewWidth,NewHeight,DXGI_FORMAT_UNKNOWN,0);
-	if(GlobalSwapChain->GetBuffer(0,__uuidof(ID3D11Texture2D),(void**)&GlobalFrameBuffer)==S_OK){
-		ASSERT(GlobalFrameBuffer);
-		//RenderTargetView
-		if(GlobalDevice->CreateRenderTargetView(GlobalFrameBuffer,NULL,&GlobalRenderTargetView)==S_OK){
-			ASSERT(GlobalRenderTargetView);
-			OutputDebugStringA("Resize Success\n");
-		}
-		else{
-			OutputDebugStringA("Resize RTV failed\n");
-		}
-	}
-	else{
-		OutputDebugStringA("Resize Buffer failed\n");
-	}
-	
-}
-
-internal void UpdateCSTexture(UINT Width, UINT Height){
-	if(GlobalCSShaderResource){
-		GlobalCSShaderResource->Release();
-	}
-	
-	//Create new Texture2D
-	D3D11_TEX2D_SRV CSSRV;
-	CSSRV.MostDetailedMip = 0;
-	CSSRV.MipLevels = 1;
-	
-	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
-	SRVDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	SRVDesc.Texture2D =  CSSRV;
-	
-	UINT TextureSize = Width * Height * 4;
-	void *CSShaderResourceData =  VirtualAlloc(nullptr,TextureSize,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);
-	ASSERT(CSShaderResourceData);
-	
-	D3D11_SUBRESOURCE_DATA CSSubresourceData;
-	CSSubresourceData.pSysMem = CSShaderResourceData;
-	CSSubresourceData.SysMemPitch = 4;
-	CSSubresourceData.SysMemSlicePitch = 0;
-	D3D11_TEXTURE2D_DESC Tex2DDesc;
-	GlobalFrameBuffer->GetDesc(&Tex2DDesc);
-	Tex2DDesc.BindFlags |= (D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS);
-	ASSERT(GlobalDevice->CreateTexture2D(&Tex2DDesc,&CSSubresourceData,&GlobalCSShaderResource)==S_OK);
-
-	//Create new UAV
-	D3D11_BUFFER_UAV UAVElementDesc;
-	UAVElementDesc.FirstElement = 0;
-	UAVElementDesc.NumElements = TextureSize / 4;
-	UAVElementDesc.Flags = 0;
-	
-	D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc;
-	UAVDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
-	UAVDesc.Buffer = UAVElementDesc;
-
-	ASSERT(GlobalDevice->CreateUnorderedAccessView(GlobalCSShaderResource,&UAVDesc,&GlobalUAV)==S_OK);
 }
 
 internal void Win32ProcessError(DWORD Error){
@@ -146,134 +95,6 @@ internal void Win32ProcessError(DWORD Error){
                   0, NULL);
 	OutputDebugStringA((LPSTR)lpMsgBuf);
 	exit(-1);
-}
-
-internal int Win32GetIDXGIInterfacesFromD3DDevice(ID3D11Device *Device, IDXGIDevice1 **IdxgiDevice,IDXGIAdapter **IdxgiAdapter,IDXGIFactory2 **IdxgiFactory ){
-	*IdxgiDevice = NULL;
-	*IdxgiAdapter = NULL;
-	*IdxgiFactory = NULL;
-	
-	if(Device){
-		Device->QueryInterface(__uuidof(IDXGIDevice1),(void **)IdxgiDevice);
-		if(*IdxgiDevice){
-			(*IdxgiDevice)->GetAdapter(IdxgiAdapter);
-			if(*IdxgiAdapter){
-				(*IdxgiAdapter)->GetParent(__uuidof(IDXGIFactory2),(void **)IdxgiFactory);
-				if(*IdxgiFactory){
-					return 1;
-				}
-			}
-		}
-	}
-	return 0;
-}
-
-internal IDXGISwapChain1* Win32GetSwapChain(ID3D11Device *Device, HWND Window,IDXGIFactory2 *IdxgiFactory){
-	DXGI_SAMPLE_DESC SampleDesc = {1,0};
-	DXGI_SWAP_CHAIN_DESC1 SwapChainDesc1;
-	SwapChainDesc1.Width = 0;
-	SwapChainDesc1.Height = 0;
-	SwapChainDesc1.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	SwapChainDesc1.Stereo = FALSE;
-	SwapChainDesc1.SampleDesc = SampleDesc;
-	SwapChainDesc1.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	SwapChainDesc1.BufferCount = 2;
-	SwapChainDesc1.Scaling = DXGI_SCALING_NONE;
-	SwapChainDesc1.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-	SwapChainDesc1.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-	SwapChainDesc1.Flags = 0;
-	
-	IDXGISwapChain1 *SwapChain;
-	if(IdxgiFactory->CreateSwapChainForHwnd(Device,Window,&SwapChainDesc1,NULL,NULL,&SwapChain)!=S_OK){
-		return NULL;
-	}
-	return SwapChain;
-	
-}
-
-internal ID3DBlob* Win32CompileShaderFromFile(LPCWSTR Filename, LPCSTR Entrypoint, LPCSTR Target){
-	ID3DBlob *BlobCode;
-	ID3DBlob *BlobError;
-	
-	HRESULT res;
-	if(!((res=D3DCompileFromFile(Filename, NULL, NULL, Entrypoint, Target, /*D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY | */ D3DCOMPILE_DEBUG, 0, &BlobCode, &BlobError)) == S_OK)){
-		if(BlobError){
-			LPCSTR Buffer = (LPCSTR)BlobError->GetBufferPointer();
-			OutputDebugStringA(Buffer);
-		}
-		return NULL;
-	}
-	
-	ASSERT(BlobCode);
-	return BlobCode;
-}
-
-internal ID3D11Buffer* Win32CreateVertexBuffer(ID3D11Device *Device,void* VertexBufferData, UINT VertexBufferSize){
-	D3D11_BUFFER_DESC VertexBufferDesc;
-	VertexBufferDesc.ByteWidth = VertexBufferSize;
-	VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-	VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	VertexBufferDesc.CPUAccessFlags = 0;
-	VertexBufferDesc.MiscFlags = 0;
-	VertexBufferDesc.StructureByteStride = 0;
-	
-	D3D11_SUBRESOURCE_DATA SubresourceData;
-	SubresourceData.pSysMem = VertexBufferData;
-	SubresourceData.SysMemPitch = 0;
-	SubresourceData.SysMemSlicePitch = 0;
-	
-	ID3D11Buffer *VertexBuffer;
-	ASSERT(Device->CreateBuffer(&VertexBufferDesc,&SubresourceData,&VertexBuffer)==S_OK);
-
-	D3D11_BUFFER_DESC VBDesc;
-	VertexBuffer->GetDesc(&VBDesc);
-
-	return VertexBuffer;
-}
-
-internal ID3D11InputLayout* Win32CreateVertexInputLayout(ID3D11Device *Device, ID3D11DeviceContext *DeviceContext,void *CompiledVSShaderCode, size_t ShaderSize){
-	D3D11_INPUT_ELEMENT_DESC VSInputElementDesc;
-	VSInputElementDesc.SemanticName = "SV_POSITION";
-	VSInputElementDesc.SemanticIndex = 0;
-	VSInputElementDesc.Format = DXGI_FORMAT_R32G32B32_FLOAT;
-	VSInputElementDesc.InputSlot = 0;
-	VSInputElementDesc.AlignedByteOffset = 0;
-	VSInputElementDesc.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-	VSInputElementDesc.InstanceDataStepRate = 0;
-	
-	ID3D11InputLayout *VSInputLayout = NULL;
-	ASSERT(Device->CreateInputLayout(&VSInputElementDesc,1,CompiledVSShaderCode,ShaderSize,&VSInputLayout)==S_OK);
-	return VSInputLayout;
-	
-}
-
-internal ID3D11VertexShader* Win32CreateVertexShader(ID3D11Device *Device, void *CompiledShaderCode, size_t ShaderSize){
-	ID3D11VertexShader *VertexShader = NULL;
-	ASSERT(Device->CreateVertexShader(CompiledShaderCode,ShaderSize,NULL,&VertexShader)==S_OK);
-	return VertexShader;
-	
-}
-internal ID3D11PixelShader* Win32CreatePixelShader(ID3D11Device *Device, LPCWSTR Filename, LPCSTR Entrypoint, LPCSTR Target){
-	//Pixel Shader
-	ID3DBlob *BlobPSCode = Win32CompileShaderFromFile(Filename,Entrypoint,Target);
-	void *CompiledPSShaderCode = BlobPSCode->GetBufferPointer();
-	size_t PSShaderSize = BlobPSCode->GetBufferSize();
-	ASSERT(CompiledPSShaderCode);
-	ID3D11PixelShader *PixelShader = NULL;
-	ASSERT(Device->CreatePixelShader(CompiledPSShaderCode,PSShaderSize,NULL,&PixelShader)==S_OK);
-	return PixelShader;
-	
-}
-internal int Win32AddPixelShaderToArray(ID3D11PixelShader** PixelShaderArray, ID3D11PixelShader* PixelShader){
-	if(PixelShaderArray){
-		if(GlobalPixelShaderInArrayCount < MAX_PIXEL_SHADER_COUNT){
-			PixelShaderArray[GlobalPixelShaderInArrayCount] = PixelShader;
-			GlobalPixelShaderInArrayCount++;
-			return GlobalPixelShaderInArrayCount-1;
-		}
-	}
-	return -1;
-	
 }
 
 internal void MessageLoop(ID3D11Device* Device){
@@ -361,6 +182,243 @@ internal void MessageLoop(ID3D11Device* Device){
 		}
 	}
 }
+
+
+//DXGI functions
+internal int Win32GetIDXGIInterfacesFromD3DDevice(
+	ID3D11Device *Device, 
+	IDXGIDevice1 **IdxgiDevice,
+	IDXGIAdapter **IdxgiAdapter,
+	IDXGIFactory2 **IdxgiFactory)
+{
+	*IdxgiDevice = NULL;
+	*IdxgiAdapter = NULL;
+	*IdxgiFactory = NULL;
+	
+	if(Device){
+		Device->QueryInterface(__uuidof(IDXGIDevice1),(void **)IdxgiDevice);
+		if(*IdxgiDevice){
+			(*IdxgiDevice)->GetAdapter(IdxgiAdapter);
+			if(*IdxgiAdapter){
+				(*IdxgiAdapter)->GetParent(__uuidof(IDXGIFactory2),(void **)IdxgiFactory);
+				if(*IdxgiFactory){
+					return 1;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+
+
+
+internal IDXGISwapChain1* Win32GetSwapChain(
+	ID3D11Device *Device, 
+	HWND Window,
+	IDXGIFactory2 *IdxgiFactory)
+{
+	DXGI_SAMPLE_DESC SampleDesc = {1,0};
+	DXGI_SWAP_CHAIN_DESC1 SwapChainDesc1;
+	SwapChainDesc1.Width = 0;
+	SwapChainDesc1.Height = 0;
+	SwapChainDesc1.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	SwapChainDesc1.Stereo = FALSE;
+	SwapChainDesc1.SampleDesc = SampleDesc;
+	SwapChainDesc1.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	SwapChainDesc1.BufferCount = 2;
+	SwapChainDesc1.Scaling = DXGI_SCALING_NONE;
+	SwapChainDesc1.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+	SwapChainDesc1.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+	SwapChainDesc1.Flags = 0;
+	
+	IDXGISwapChain1 *SwapChain;
+	if(IdxgiFactory->CreateSwapChainForHwnd(Device,Window,&SwapChainDesc1,NULL,NULL,&SwapChain)!=S_OK){
+		return NULL;
+	}
+	return SwapChain;
+	
+}
+
+//Shader compilation functions
+internal ID3DBlob* Win32CompileShaderFromFile(LPCWSTR Filename, LPCSTR Entrypoint, LPCSTR Target){
+	ID3DBlob *BlobCode;
+	ID3DBlob *BlobError;
+	
+	HRESULT res;
+	if(!((res=D3DCompileFromFile(Filename, NULL, NULL, Entrypoint, Target, D3DCOMPILE_DEBUG, 0, &BlobCode, &BlobError)) == S_OK)){
+		if(BlobError){
+			LPCSTR Buffer = (LPCSTR)BlobError->GetBufferPointer();
+			OutputDebugStringA(Buffer);
+		}
+		return NULL;
+	}
+	
+	ASSERT(BlobCode);
+	return BlobCode;
+}
+
+//Buffer functions
+
+internal ID3D11Buffer* Win32CreateVertexBuffer(
+	ID3D11Device *Device,
+	void* VertexBufferData, 
+	UINT VertexBufferSize)
+{
+	D3D11_BUFFER_DESC VertexBufferDesc;
+	VertexBufferDesc.ByteWidth = VertexBufferSize;
+	VertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	VertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	VertexBufferDesc.CPUAccessFlags = 0;
+	VertexBufferDesc.MiscFlags = 0;
+	VertexBufferDesc.StructureByteStride = 0;
+	
+	D3D11_SUBRESOURCE_DATA SubresourceData;
+	SubresourceData.pSysMem = VertexBufferData;
+	SubresourceData.SysMemPitch = 0;
+	SubresourceData.SysMemSlicePitch = 0;
+	
+	ID3D11Buffer *VertexBuffer;
+	ASSERT(Device->CreateBuffer(&VertexBufferDesc,&SubresourceData,&VertexBuffer)==S_OK);
+
+	D3D11_BUFFER_DESC VBDesc;
+	VertexBuffer->GetDesc(&VBDesc);
+
+	return VertexBuffer;
+}
+
+internal ID3D11InputLayout* Win32CreateVertexInputLayout(
+	ID3D11Device *Device, 
+	ID3D11DeviceContext *DeviceContext,
+	void *CompiledVSShaderCode, 
+	size_t ShaderSize)#
+{
+	D3D11_INPUT_ELEMENT_DESC VSInputElementDesc;
+	VSInputElementDesc.SemanticName = "SV_POSITION";
+	VSInputElementDesc.SemanticIndex = 0;
+	VSInputElementDesc.Format = DXGI_FORMAT_R32G32B32_FLOAT;
+	VSInputElementDesc.InputSlot = 0;
+	VSInputElementDesc.AlignedByteOffset = 0;
+	VSInputElementDesc.InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+	VSInputElementDesc.InstanceDataStepRate = 0;
+	
+	ID3D11InputLayout *VSInputLayout = NULL;
+	ASSERT(Device->CreateInputLayout(&VSInputElementDesc,1,CompiledVSShaderCode,ShaderSize,&VSInputLayout)==S_OK);
+	return VSInputLayout;
+	
+}
+
+//Shader Creation functions
+internal ID3D11VertexShader* Win32CreateVertexShader(
+	ID3D11Device *Device, 
+	void *CompiledShaderCode, 
+	size_t ShaderSize)
+{
+	ID3D11VertexShader *VertexShader = NULL;
+	ASSERT(Device->CreateVertexShader(CompiledShaderCode,ShaderSize,NULL,&VertexShader)==S_OK);
+	return VertexShader;
+	
+}
+internal ID3D11PixelShader* Win32CreatePixelShader(
+	ID3D11Device *Device, 
+	LPCWSTR Filename, 
+	LPCSTR Entrypoint, 
+	LPCSTR Target)
+{
+	//Pixel Shader
+	ID3DBlob *BlobPSCode = Win32CompileShaderFromFile(Filename,Entrypoint,Target);
+	void *CompiledPSShaderCode = BlobPSCode->GetBufferPointer();
+	size_t PSShaderSize = BlobPSCode->GetBufferSize();
+	ASSERT(CompiledPSShaderCode);
+	ID3D11PixelShader *PixelShader = NULL;
+	ASSERT(Device->CreatePixelShader(CompiledPSShaderCode,PSShaderSize,NULL,&PixelShader)==S_OK);
+	return PixelShader;
+	
+}
+
+//miscs
+internal int Win32AddPixelShaderToArray(
+	ID3D11PixelShader** PixelShaderArray, 
+	ID3D11PixelShader* PixelShader)
+{
+	if(PixelShaderArray){
+		if(GlobalPixelShaderInArrayCount < MAX_PIXEL_SHADER_COUNT){
+			PixelShaderArray[GlobalPixelShaderInArrayCount] = PixelShader;
+			GlobalPixelShaderInArrayCount++;
+			return GlobalPixelShaderInArrayCount-1;
+		}
+	}
+	return -1;
+	
+}
+
+
+internal void ResizeSwapChainBuffers(UINT NewWidth, UINT NewHeight){
+	GlobalDeviceContext->OMSetRenderTargets(0,0,0);
+	GlobalFrameBuffer->Release();
+	GlobalFrameBuffer = nullptr;
+	GlobalRenderTargetView->Release();
+	GlobalRenderTargetView = nullptr;
+	GlobalSwapChain->ResizeBuffers(0,NewWidth,NewHeight,DXGI_FORMAT_UNKNOWN,0);
+	if(GlobalSwapChain->GetBuffer(0,__uuidof(ID3D11Texture2D),(void**)&GlobalFrameBuffer)==S_OK){
+		ASSERT(GlobalFrameBuffer);
+		//RenderTargetView
+		if(GlobalDevice->CreateRenderTargetView(GlobalFrameBuffer,NULL,&GlobalRenderTargetView)==S_OK){
+			ASSERT(GlobalRenderTargetView);
+			OutputDebugStringA("Resize Success\n");
+		}
+		else{
+			OutputDebugStringA("Resize RTV failed\n");
+		}
+	}
+	else{
+		OutputDebugStringA("Resize Buffer failed\n");
+	}
+	
+}
+
+internal void UpdateCSTexture(UINT Width, UINT Height){
+	if(GlobalCSShaderResource){
+		GlobalCSShaderResource->Release();
+	}
+	
+	//Create new Texture2D
+	D3D11_TEX2D_SRV CSSRV;
+	CSSRV.MostDetailedMip = 0;
+	CSSRV.MipLevels = 1;
+	
+	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
+	SRVDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	SRVDesc.Texture2D =  CSSRV;
+	
+	UINT TextureSize = Width * Height * 4;
+	void *CSShaderResourceData =  VirtualAlloc(nullptr,TextureSize,MEM_RESERVE|MEM_COMMIT,PAGE_READWRITE);
+	ASSERT(CSShaderResourceData);
+	
+	D3D11_SUBRESOURCE_DATA CSSubresourceData;
+	CSSubresourceData.pSysMem = CSShaderResourceData;
+	CSSubresourceData.SysMemPitch = 4;
+	CSSubresourceData.SysMemSlicePitch = 0;
+	D3D11_TEXTURE2D_DESC Tex2DDesc;
+	GlobalFrameBuffer->GetDesc(&Tex2DDesc);
+	Tex2DDesc.BindFlags |= (D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS);
+	ASSERT(GlobalDevice->CreateTexture2D(&Tex2DDesc,&CSSubresourceData,&GlobalCSShaderResource)==S_OK);
+
+	//Create new UAV
+	D3D11_BUFFER_UAV UAVElementDesc;
+	UAVElementDesc.FirstElement = 0;
+	UAVElementDesc.NumElements = TextureSize / 4;
+	UAVElementDesc.Flags = 0;
+	
+	D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc;
+	UAVDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
+	UAVDesc.Buffer = UAVElementDesc;
+
+	ASSERT(GlobalDevice->CreateUnorderedAccessView(GlobalCSShaderResource,&UAVDesc,&GlobalUAV)==S_OK);
+}
+
 
 int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmdshow){
 	//Windows Window
