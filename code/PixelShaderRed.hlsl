@@ -15,8 +15,13 @@ ps_output PSEntry(const ps_input input)
 {
 	ps_output output;
 	
-
+	float dp = dot(input.Normal.xyz,LightSource);
+	if(dp>0){	
+		output.color = float4(1,0,0,1);
+	}
+	else{
+		output.color = float4(0,1,0,1);
+	}
 	
-	output.color = float4(dot(input.Normal.xyz,LightSource),1);
 	return output;
 }

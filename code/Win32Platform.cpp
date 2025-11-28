@@ -710,6 +710,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			ShaderCode GSCode = Win32CompileShaderFromFile(L"GeometryShader.hlsl","GSEntry","gs_5_0");
 			ASSERT(GSCode.Code);
 			res = GlobalDevice->CreateGeometryShader(GSCode.Code,GSCode.Size,nullptr,&GlobalGeometryShaderArray[0]);
+			ASSERT(res==S_OK);//GeometryShader
+			GSCode = Win32CompileShaderFromFile(L"GeometryShaderCube.hlsl","GSEntry","gs_5_0");
+			ASSERT(GSCode.Code);
+			res = GlobalDevice->CreateGeometryShader(GSCode.Code,GSCode.Size,nullptr,&GlobalGeometryShaderArray[1]);
 			ASSERT(res==S_OK);
 			
 			//Rasterizer
@@ -730,7 +734,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			ASSERT(RasterizerState);
 
 			D3D11_RASTERIZER_DESC RasterizerDesc2;
-			RasterizerDesc2.FillMode = D3D11_FILL_WIREFRAME;
+			RasterizerDesc2.FillMode = D3D11_FILL_SOLID;
 			RasterizerDesc2.CullMode = D3D11_CULL_NONE;
 			RasterizerDesc2.FrontCounterClockwise = FALSE;
 			RasterizerDesc2.DepthBias = 0;
@@ -791,7 +795,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					&AngleConstantBuffer,1,
 					nullptr,
 					nullptr,
-					nullptr,
+					GlobalGeometryShaderArray[1],
 					RasterizerState2,
 					&GlobalAnimationShader,
 					&GlobalRenderTargetView, 1,
@@ -904,7 +908,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					AnimationCount = (AnimationCount + 1) % (60);
 					if (AnimationCount == 0) {
 						AnimationIndex = (AnimationIndex + 1) % GlobalPixelShaderInArrayCount;
-						GlobalAnimationShader = GlobalPixelShaderArray[AnimationIndex];
+						//GlobalAnimationShader = GlobalPixelShaderArray[AnimationIndex];
 					}
 					ConstantBufferData[0] = (float)fmod((ConstantBufferData[0]+ 0.5f),360.0f);
 					
