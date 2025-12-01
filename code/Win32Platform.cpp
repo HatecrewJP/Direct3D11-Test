@@ -33,7 +33,6 @@ global_variable bool GlobalGeometryShaderActive = true;
 
 static ShaderColor GlobalActiveShaderColor = WHITE;
 
-
 global_variable GraphicsPipelineState PipelineStateArray[MAX_PIPELINE_STATES];
 global_variable unsigned int PipelineStateCount = 0;
 global_variable GraphicsPipelineState ActivePipelineStateArray[MAX_PIPELINE_STATES];
@@ -106,12 +105,11 @@ internal void Win32ProcessError(DWORD Error){
 internal void MessageLoop(ID3D11Device* Device){
 	MSG Message;
 	while(PeekMessage(&Message, 0, 0, 0, PM_REMOVE)){
-		
+		static int x = 0, y = 0;
 		switch(Message.message){
 			case WM_QUIT:{
 				GlobalRunning = false;
 			}break;
-			
 			case WM_KEYDOWN:{
 				unsigned int VKCode = (unsigned int) Message.wParam;
 				if(VKCode == '1'){
@@ -126,14 +124,18 @@ internal void MessageLoop(ID3D11Device* Device){
 				else if(VKCode == '4'){
 					if(GlobalPixelShaderInArrayCount >= 4 ) GlobalActiveShaderColor = BLUE;
 				}
-				
+				else if(VKCode == 'T'){
+					y = (y+3)%6;
+					ClearActivePipelineState();
+					PushPipelineState(&PipelineStateArray[(x%3)+y]);
+					
+				}
 				else if(VKCode == VK_SPACE){
 					GlobalAnimationIsActive ^= true;
 				}
 				else if(VKCode == 'C'){
-					static int x = 0;
 					ClearActivePipelineState();
-					PushPipelineState(&PipelineStateArray[(++x%3)]);
+					PushPipelineState(&PipelineStateArray[(++x%3)+y]);
 				}
 				bool AltKeyWasDown = ((Message.lParam & (1 << 29)) != 0);
 				if((VKCode == VK_F4) && AltKeyWasDown){
@@ -468,6 +470,8 @@ internal void PushPipelineState(GraphicsPipelineState *State){
 	ActivePipelineStateArray[ActivePipelineStateCount++]=*State;
 }
 
+
+
 //Miscs
 internal int Win32AddPixelShaderToArray(
 	ID3D11PixelShader** PixelShaderArray, 
@@ -651,6 +655,26 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				CubeIndices,
 				sizeof(CubeIndices),
 				1*sizeof(UINT));
+				
+				
+				
+			float TriVertices[]{
+				/*Pos*/ -1.00f,0.00f, 0.00f, /*COLOR*/ 1.00f, 0.00f, 0.00f, 1.00f,
+				/*Pos*/ -1.00f,1.00f, 0.00f, /*COLOR*/ 0.00f, 1.00f, 0.00f, 1.00f,
+				/*Pos*/  0.00f,1.00f, 0.00f, /*COLOR*/ 0.00f, 0.00f, 1.00f, 1.00f,
+				
+			};
+			UINT TriIndices[]{
+				//Front
+				0,2,3
+			};
+			CreateVBForIndexedGeometry(
+				TriVertices,
+				sizeof(TriVertices),
+				7 * sizeof(float),
+				TriIndices,
+				sizeof(TriVertices),
+				1*sizeof(UINT));
 			
 			
 			ShaderCode VSCode = Win32CompileShaderFromFile(L"VertexShaderCube.hlsl","VSEntry","vs_5_0");
@@ -814,6 +838,61 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					&ConstantBuffer,1,
 					&GlobalRenderTargetView, 1,
 					"CubeGeometryTesselationEnabled"));
+					
+					
+			AddPipelineStateToArray(BuildPipelineState(
+					&GlobalVertexBufferArray[1],1,
+					(UINT*)&GlobalIndexedGeometryArray[1].VertexSize,
+					(UINT*)&Zero,
+					GlobalIndexBufferArray[1],DXGI_FORMAT_R32_UINT,ArrayCount(TriIndices),
+					VSInputLayoutArray[0],
+					D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+					GlobalVertexShaderArray[0],
+					&ConstantBuffer,1,
+					nullptr,
+					nullptr,
+					GlobalGeometryShaderArray[1],
+					RasterizerState2,
+					&GlobalPixelShaderArray[0],
+					&ConstantBuffer,1,
+					&GlobalRenderTargetView, 1,
+					"Tri"));
+			AddPipelineStateToArray(BuildPipelineState(
+					&GlobalVertexBufferArray[1],1,
+					(UINT*)&GlobalIndexedGeometryArray[1].VertexSize,
+					(UINT*)&Zero,
+					GlobalIndexBufferArray[1],DXGI_FORMAT_R32_UINT,ArrayCount(TriIndices),
+					VSInputLayoutArray[0],
+					D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+					GlobalVertexShaderArray[0],
+					&ConstantBuffer,1,
+					nullptr,
+					nullptr,
+					GlobalGeometryShaderArray[0],
+					RasterizerState2,
+					&GlobalPixelShaderArray[0],
+					&ConstantBuffer,1,
+					&GlobalRenderTargetView, 1,
+					"TriGeometryShaderEnabled"));
+			AddPipelineStateToArray(BuildPipelineState(
+					&GlobalVertexBufferArray[1],1,
+					(UINT*)&GlobalIndexedGeometryArray[1].VertexSize,
+					(UINT*)&Zero,
+					GlobalIndexBufferArray[1],DXGI_FORMAT_R32_UINT,ArrayCount(TriIndices),
+					VSInputLayoutArray[0],
+					D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST,
+					GlobalVertexShaderArray[0],
+					&ConstantBuffer,1,
+					GlobalHullShaderArray[0],
+					GlobalDomainShaderArray[0],
+					nullptr,
+					RasterizerState2,
+					&GlobalPixelShaderArray[0],
+					&ConstantBuffer,1,
+					&GlobalRenderTargetView, 1,
+					"TriGeometryTesselationEnabled"));
+			
+			
 			
 			//ComputeShader
 			ShaderCode CSCode = Win32CompileShaderFromFile(L"ComputeShader.hlsl","CSEntry","cs_5_0");
