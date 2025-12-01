@@ -22,7 +22,7 @@ void GSEntry(triangle GSInput InputTri[3] : SV_Position, inout TriangleStream<GS
 	MidPoint.w = 1.0f;
 	float4 MidPointColor = float4((InputTri[0].Color.xyz + InputTri[1].Color.xyz + InputTri[2].Color.xyz)/3,1);
 	GSOutput Output;
-	
+	Output.Color =  MidPointColor;
 	Output.Color.w = 1.0f;
 	
 	Output.Normal = CalculateNormalFromTriangle(InputTri[0].Position,InputTri[1].Position,MidPoint);
@@ -33,25 +33,15 @@ void GSEntry(triangle GSInput InputTri[3] : SV_Position, inout TriangleStream<GS
 	OutStream.Append(Output);
 	Output.Pos = MidPoint;
 	OutStream.Append(Output);
-	OutStream.RestartStrip();
 	
 	Output.Normal = CalculateNormalFromTriangle(InputTri[1].Position,InputTri[2].Position,MidPoint);
 	Output.Color.xyz = (InputTri[1].Color.xyz + InputTri[2].Color.xyz + MidPointColor.xyz)/3.0f;
-	Output.Pos = InputTri[1].Position;
-	OutStream.Append(Output);
 	Output.Pos = InputTri[2].Position;
 	OutStream.Append(Output);
-	Output.Pos = MidPoint;
-	OutStream.Append(Output);
-	OutStream.RestartStrip();
 	
 	Output.Normal = CalculateNormalFromTriangle(InputTri[2].Position,InputTri[0].Position,MidPoint);
 	Output.Color.xyz = (InputTri[2].Color.xyz + InputTri[0].Color.xyz + MidPointColor.xyz)/3.0f;
-	Output.Pos = InputTri[2].Position;
-	OutStream.Append(Output);
 	Output.Pos = InputTri[0].Position;
-	OutStream.Append(Output);
-	Output.Pos = MidPoint;
 	OutStream.Append(Output);
 	OutStream.RestartStrip();
 	

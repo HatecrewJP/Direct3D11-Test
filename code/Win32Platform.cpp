@@ -716,20 +716,20 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			ASSERT(res==S_OK);
 			
 			//Rasterizer
-			D3D11_RASTERIZER_DESC RasterizerDesc;
-			RasterizerDesc.FillMode = D3D11_FILL_SOLID;
-			RasterizerDesc.CullMode = D3D11_CULL_BACK;
-			RasterizerDesc.FrontCounterClockwise = FALSE;
-			RasterizerDesc.DepthBias = 0;
-			RasterizerDesc.DepthBiasClamp = 1.0f;
-			RasterizerDesc.SlopeScaledDepthBias = 0.0f;
-			RasterizerDesc.DepthClipEnable = FALSE;
-			RasterizerDesc.ScissorEnable = FALSE;
-			RasterizerDesc.MultisampleEnable = FALSE;
-			RasterizerDesc.AntialiasedLineEnable = FALSE;
+			D3D11_RASTERIZER_DESC RasterizerDesc1;
+			RasterizerDesc1.FillMode = D3D11_FILL_SOLID;
+			RasterizerDesc1.CullMode = D3D11_CULL_NONE;
+			RasterizerDesc1.FrontCounterClockwise = FALSE;
+			RasterizerDesc1.DepthBias = 0;
+			RasterizerDesc1.DepthBiasClamp = 1.0f;
+			RasterizerDesc1.SlopeScaledDepthBias = 0.0f;
+			RasterizerDesc1.DepthClipEnable = FALSE;
+			RasterizerDesc1.ScissorEnable = FALSE;
+			RasterizerDesc1.MultisampleEnable = FALSE;
+			RasterizerDesc1.AntialiasedLineEnable = FALSE;
 			
 			ID3D11RasterizerState *RasterizerState1 = nullptr;
-			res = GlobalDevice->CreateRasterizerState(&RasterizerDesc,&RasterizerState1);
+			res = GlobalDevice->CreateRasterizerState(&RasterizerDesc1,&RasterizerState1);
 			ASSERT(RasterizerState1);
 
 			D3D11_RASTERIZER_DESC RasterizerDesc2;
@@ -852,7 +852,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					nullptr,
 					nullptr,
 					GlobalGeometryShaderArray[1],
-					RasterizerState2,
+					RasterizerState1,
 					&GlobalPixelShaderArray[0],
 					&ConstantBuffer,1,
 					&GlobalRenderTargetView, 1,
@@ -869,7 +869,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					nullptr,
 					nullptr,
 					GlobalGeometryShaderArray[0],
-					RasterizerState2,
+					RasterizerState1,
 					&GlobalPixelShaderArray[0],
 					&ConstantBuffer,1,
 					&GlobalRenderTargetView, 1,
@@ -886,7 +886,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					GlobalHullShaderArray[0],
 					GlobalDomainShaderArray[0],
 					nullptr,
-					RasterizerState2,
+					RasterizerState1,
 					&GlobalPixelShaderArray[0],
 					&ConstantBuffer,1,
 					&GlobalRenderTargetView, 1,
