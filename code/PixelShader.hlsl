@@ -11,6 +11,7 @@ cbuffer CBuffer{
 struct ps_input
 {
 	float4 vPosition : SV_Position;
+	float3 Normal : NORMAL;
 };
 
 struct ps_output
@@ -21,7 +22,9 @@ struct ps_output
 ps_output PSEntry(const ps_input input)
 {
 	ps_output output;
+	float4 Color = float4(ColorR,ColorG,ColorB,ColorA);
 	
-	output.color = float4(ColorR,ColorG,ColorB,ColorA);
+	
+	output.color = Color;
 	return output;
 }

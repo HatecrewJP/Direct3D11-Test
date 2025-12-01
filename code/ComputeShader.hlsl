@@ -1,7 +1,3 @@
-
-
-
-
 RWTexture2D <unorm float4> Texture : register(u0);
 
 [numthreads(1,1,1)]

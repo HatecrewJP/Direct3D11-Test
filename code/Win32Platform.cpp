@@ -116,8 +116,7 @@ internal void MessageLoop(ID3D11Device* Device){
 			case WM_KEYDOWN:{
 				unsigned int VKCode = (unsigned int) Message.wParam;
 				if(VKCode == '1'){
-					if(GlobalPixelShaderInArrayCount >= 1 ) GlobalActiveShaderColor = WHITE;
-					
+					if(GlobalPixelShaderInArrayCount >= 1 ) GlobalActiveShaderColor = WHITE;	
 				}
 				else if(VKCode == '2'){
 					if(GlobalPixelShaderInArrayCount >= 2 ) GlobalActiveShaderColor = RED;
@@ -132,24 +131,15 @@ internal void MessageLoop(ID3D11Device* Device){
 				else if(VKCode == VK_SPACE){
 					GlobalAnimationIsActive ^= true;
 				}
-				else if(VKCode == 'T'){
-					GlobalTesselationActive ^=true;
-				}
 				else if(VKCode == 'C'){
 					static int x = 0;
 					ClearActivePipelineState();
-					PushPipelineState(&PipelineStateArray[x^=1]);
+					PushPipelineState(&PipelineStateArray[(++x%3)]);
 				}
-				else if(VKCode == 'G'){
-					GlobalGeometryShaderActive ^=true;
-				}
-				
-				
 				bool AltKeyWasDown = ((Message.lParam & (1 << 29)) != 0);
 				if((VKCode == VK_F4) && AltKeyWasDown){
 					GlobalRunning = false;
 				}
-					
 			}break;
 			
 			default:{
@@ -626,20 +616,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 				VSCode.Size);
 			}
 			
-			//Vertex Shader
-			{
-				ShaderCode VSCode = Win32CompileShaderFromFile(L"VertexShader.hlsl","VSEntry","vs_5_0");
-				ASSERT(VSCode.Code);
-				GlobalVertexShaderArray[1] = Win32CreateVertexShader(GlobalDevice,VSCode.Code,VSCode.Size);
-				ASSERT(GlobalVertexShaderArray[1]);
-				OutputDebugStringA("Vertex Shader created\n");
-				//Input Layout
-				VSInputLayoutArray[1] = Win32CreateVertexInputLayout(
-				GlobalDevice,
-				GlobalDeviceContext,
-				VSCode.Code,
-				VSCode.Size);
-			}
+			
 			
 			
 			float CubeVertices[]{
@@ -698,21 +675,26 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			ASSERT(res==S_OK);
 			
 			//GeometryShader
-			ShaderCode GSCode = Win32CompileShaderFromFile(L"GeometryShader.hlsl","GSEntry","gs_5_0");
+			ShaderCode GSCode = Win32CompileShaderFromFile(L"GeometryShaderSubdiv.hlsl","GSEntry","gs_5_0");
 			ASSERT(GSCode.Code);
 			res = GlobalDevice->CreateGeometryShader(GSCode.Code,GSCode.Size,nullptr,&GlobalGeometryShaderArray[0]);
+			ASSERT(res==S_OK);
+			//GeometryShader
+			GSCode = Win32CompileShaderFromFile(L"GeometryShaderCube.hlsl","GSEntry","gs_5_0");
+			ASSERT(GSCode.Code);
+			res = GlobalDevice->CreateGeometryShader(GSCode.Code,GSCode.Size,nullptr,&GlobalGeometryShaderArray[1]);
 			ASSERT(res==S_OK);
 			
 			//Rasterizer
 			D3D11_RASTERIZER_DESC RasterizerDesc;
-			RasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
+			RasterizerDesc.FillMode = D3D11_FILL_SOLID;
 			RasterizerDesc.CullMode = D3D11_CULL_NONE;
 			RasterizerDesc.FrontCounterClockwise = FALSE;
 			RasterizerDesc.DepthBias = 0;
 			RasterizerDesc.DepthBiasClamp = 1.0f;
 			RasterizerDesc.SlopeScaledDepthBias = 0.0f;
 			RasterizerDesc.DepthClipEnable = FALSE;
-			RasterizerDesc.ScissorEnable = TRUE;
+			RasterizerDesc.ScissorEnable = FALSE;
 			RasterizerDesc.MultisampleEnable = FALSE;
 			RasterizerDesc.AntialiasedLineEnable = FALSE;
 			
@@ -786,7 +768,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					&ConstantBuffer,1,
 					nullptr,
 					nullptr,
-					nullptr,
+					GlobalGeometryShaderArray[1],
 					RasterizerState2,
 					&GlobalPixelShaderArray[0],
 					&ConstantBuffer,1,
@@ -809,6 +791,23 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 					&ConstantBuffer,1,
 					&GlobalRenderTargetView, 1,
 					"CubeGeometryShaderEnabled"));
+			AddPipelineStateToArray(BuildPipelineState(
+					&GlobalVertexBufferArray[0],1,
+					(UINT*)&GlobalIndexedGeometryArray[0].VertexSize,
+					(UINT*)&Zero,
+					GlobalIndexBufferArray[0],DXGI_FORMAT_R32_UINT,ArrayCount(CubeIndices),
+					VSInputLayoutArray[0],
+					D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST,
+					GlobalVertexShaderArray[0],
+					&ConstantBuffer,1,
+					GlobalHullShaderArray[0],
+					GlobalDomainShaderArray[0],
+					nullptr,
+					RasterizerState2,
+					&GlobalPixelShaderArray[0],
+					&ConstantBuffer,1,
+					&GlobalRenderTargetView, 1,
+					"CubeGeometryTesselationEnabled"));
 			
 			//ComputeShader
 			ShaderCode CSCode = Win32CompileShaderFromFile(L"ComputeShader.hlsl","CSEntry","cs_5_0");

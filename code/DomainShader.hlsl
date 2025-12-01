@@ -4,6 +4,7 @@ struct DSInput{
 };
 struct DSOutput{
 	float4 Position : SV_Position;
+	float3 Normal : NORMAL;
 };
 
 struct ConstantOutputType{
@@ -17,6 +18,6 @@ DSOutput DSEntry(ConstantOutputType input, float3 UVWCoord : SV_DomainLocation, 
 	DSOutput Output;
 	
 	Output.Position = UVWCoord.x * patch[0].Position + UVWCoord.y * patch[1].Position + UVWCoord.z * patch[2].Position;
-
+	Output.Normal = float3(0,0,0);
 	return Output;
 }

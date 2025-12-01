@@ -60,6 +60,21 @@ struct IndexedGeometryObject{
 	UINT IndexDataSize;
 };
 
+
+struct float3{
+	float x;
+	float y;
+	float z;
+};
+
+
+struct CameraObject{
+	float3 BottomLeft;
+	float3 TopRight;
+	float FOV;
+	float ViewDistance;
+};
+
 enum ShaderColor{
 	RED,
 	GREEN,
@@ -68,3 +83,5 @@ enum ShaderColor{
 	
 	SHADER_COLOR_COUNT
 };
+
+
