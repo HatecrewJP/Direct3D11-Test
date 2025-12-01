@@ -34,9 +34,11 @@ internal ID3D11InputLayout* Win32CreateVertexInputLayout(
 );
 internal void CreateVBForIndexedGeometry(
 	float *GeometryData,
-	unsigned int VertexCount, 
+	unsigned int VertexDataSize,
+	unsigned int VertexElementWidth,
 	unsigned int *IndexData,
-	unsigned int IndexCount);
+	unsigned int IndexDataSize,
+	unsigned int IndexElementWidth);
 
 //Shader Creation functions
 internal ID3D11VertexShader* Win32CreateVertexShader(

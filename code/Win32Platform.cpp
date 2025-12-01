@@ -280,20 +280,22 @@ internal ID3D11InputLayout* Win32CreateVertexInputLayout(
 
 internal void CreateVBForIndexedGeometry(
 	float *GeometryData,
-	unsigned int VertexCount, 
+	unsigned int VertexDataSize,
+	unsigned int VertexElementWidth,
 	unsigned int *IndexData,
-	unsigned int IndexCount)
+	unsigned int IndexDataSize,
+	unsigned int IndexElementWidth)
 {
 	IndexedGeometryObject NewObject;
 	
 	NewObject.VertexData = GeometryData;
-	NewObject.VertexSize = sizeof(float) * 3;
-	NewObject.VertexCount = VertexCount;
+	NewObject.VertexSize = VertexElementWidth;
+	NewObject.VertexCount = VertexDataSize / VertexElementWidth;
 	NewObject.VertexDataSize = NewObject.VertexCount * NewObject.VertexSize;
 	
 	NewObject.IndexData = IndexData;
-	NewObject.IndexSize = sizeof(UINT);
-	NewObject.IndexCount = IndexCount;
+	NewObject.IndexSize = IndexElementWidth;
+	NewObject.IndexCount = IndexDataSize / IndexElementWidth;
 	NewObject.IndexDataSize = NewObject.IndexSize * NewObject.IndexCount;
 	
 	GlobalIndexedGeometryArray[IndexedGeometryCount++]=NewObject;
@@ -603,30 +605,16 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 			//Swap Chain
 			GlobalSwapChain = Win32GetSwapChain(GlobalDevice,Window,IdxgiFactory);
-			{
-				ShaderCode VSCode = Win32CompileShaderFromFile(L"VertexShaderCube.hlsl","VSEntry","vs_5_0");
-				ASSERT(VSCode.Code);
-				GlobalVertexShaderArray[0] = Win32CreateVertexShader(GlobalDevice,VSCode.Code,VSCode.Size);
-				ASSERT(GlobalVertexShaderArray[0]);
-				VSInputLayoutArray[0] = Win32CreateVertexInputLayout(
-				GlobalDevice,
-				GlobalDeviceContext,
-				VSCode.Code,
-				VSCode.Size);
-			}
-			
-			
-			
 			
 			float CubeVertices[]{
-				/*Pos*/ 0.00f,0.00f, 0.00f,
-				/*Pos*/ 1.00f,0.00f, 0.00f,
-				/*Pos*/ 0.00f,1.00f, 0.00f,
-				/*Pos*/ 1.00f,1.00f, 0.00f,
-				/*Pos*/ 0.00f,0.00f, 1.00f,
-				/*Pos*/ 1.00f,0.00f, 1.00f,
-				/*Pos*/ 0.00f,1.00f, 1.00f,
-				/*Pos*/ 1.00f,1.00f, 1.00f,
+				/*Pos*/ 0.00f,0.00f, 0.00f, /*COLOR*/ 0.00f, 0.00f, 0.00f, 1.00f,
+				/*Pos*/ 1.00f,0.00f, 0.00f, /*COLOR*/ 0.00f, 0.00f, 1.00f, 1.00f,
+				/*Pos*/ 0.00f,1.00f, 0.00f, /*COLOR*/ 0.00f, 1.00f, 0.00f, 1.00f,
+				/*Pos*/ 1.00f,1.00f, 0.00f, /*COLOR*/ 0.00f, 1.00f, 1.00f, 1.00f,
+				/*Pos*/ 0.00f,0.00f, 1.00f, /*COLOR*/ 1.00f, 0.00f, 0.00f, 1.00f,
+				/*Pos*/ 1.00f,0.00f, 1.00f, /*COLOR*/ 1.00f, 0.00f, 1.00f, 1.00f,
+				/*Pos*/ 0.00f,1.00f, 1.00f, /*COLOR*/ 1.00f, 1.00f, 0.00f, 1.00f,
+				/*Pos*/ 1.00f,1.00f, 1.00f, /*COLOR*/ 1.00f, 1.00f, 1.00f, 1.00f,
 			};
 			UINT CubeIndices[]{
 				//Front
@@ -650,11 +638,22 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			};
 			CreateVBForIndexedGeometry(
 				CubeVertices,
-				ArrayCount(CubeVertices),
+				sizeof(CubeVertices),
+				7 * sizeof(float),
 				CubeIndices,
-				ArrayCount(CubeIndices));
+				sizeof(CubeIndices),
+				1*sizeof(UINT));
 			
 			
+			ShaderCode VSCode = Win32CompileShaderFromFile(L"VertexShaderCube.hlsl","VSEntry","vs_5_0");
+			ASSERT(VSCode.Code);
+			GlobalVertexShaderArray[0] = Win32CreateVertexShader(GlobalDevice,VSCode.Code,VSCode.Size);
+				ASSERT(GlobalVertexShaderArray[0]);
+				VSInputLayoutArray[0] = Win32CreateVertexInputLayout(
+				GlobalDevice,
+				GlobalDeviceContext,
+				VSCode.Code,
+				VSCode.Size);
 			//Adding PixelShaders
 			Win32AddPixelShaderToArray(GlobalPixelShaderArray,Win32CreatePixelShader(GlobalDevice,L"PixelShader.hlsl","PSEntry","ps_5_0"));
 			
